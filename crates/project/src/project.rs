@@ -1,3 +1,4 @@
+mod color_extractor;
 pub mod connection_manager;
 pub mod debounced_delay;
 pub mod lsp_command;
@@ -20,6 +21,7 @@ use client::{
 };
 use clock::ReplicaId;
 use collections::{btree_map, hash_map, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use color_extractor::ColorExtractor;
 use debounced_delay::DebouncedDelay;
 use futures::{
     channel::{
@@ -37,7 +39,8 @@ use git::{blame::Blame, repository::GitRepository};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use gpui::{
     AnyModel, AppContext, AsyncAppContext, BackgroundExecutor, BorrowAppContext, Context, Entity,
-    EventEmitter, Model, ModelContext, PromptLevel, SharedString, Task, WeakModel, WindowContext,
+    EventEmitter, Hsla, Model, ModelContext, PromptLevel, SharedString, Task, WeakModel,
+    WindowContext,
 };
 use http::{HttpClient, Url};
 use itertools::Itertools;
@@ -58,10 +61,11 @@ use language::{
 };
 use log::error;
 use lsp::{
-    CompletionContext, DiagnosticSeverity, DiagnosticTag, DidChangeWatchedFilesRegistrationOptions,
-    DocumentHighlightKind, Edit, FileSystemWatcher, InsertTextFormat, LanguageServer,
-    LanguageServerBinary, LanguageServerId, LspRequestFuture, MessageActionItem, OneOf,
-    ServerCapabilities, ServerHealthStatus, ServerStatus, TextEdit, WorkDoneProgressCancelParams,
+    CompletionContext, CompletionItemKind, DiagnosticSeverity, DiagnosticTag,
+    DidChangeWatchedFilesRegistrationOptions, DocumentHighlightKind, Edit, FileSystemWatcher,
+    InsertTextFormat, LanguageServer, LanguageServerBinary, LanguageServerId, LspRequestFuture,
+    MessageActionItem, OneOf, ServerCapabilities, ServerHealthStatus, ServerStatus, TextEdit,
+    WorkDoneProgressCancelParams,
 };
 use lsp_command::*;
 use node_runtime::NodeRuntime;
@@ -445,6 +449,15 @@ pub struct Completion {
     pub confirm: Option<Arc<dyn Send + Sync + Fn(&mut WindowContext)>>,
     /// If true, the editor will show a new completion menu after this completion is confirmed.
     pub show_new_completions_on_confirm: bool,
+}
+
+impl Completion {
+    pub fn color(&self) -> Option<Hsla> {
+        match self.lsp_completion.kind {
+            Some(CompletionItemKind::COLOR) => ColorExtractor::extract(&self.lsp_completion),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Debug for Completion {
